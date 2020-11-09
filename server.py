@@ -48,6 +48,7 @@ t.daemon = True
 def safeExit():
 	global conn
 	global connected
+	global s
 
 	connected = False
 	try:

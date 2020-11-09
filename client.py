@@ -61,7 +61,6 @@ def sender():
 		elif msg=="clear" or msg=="cls":
 			cls()
 		else:
-			#s.sendall(aes.encrypt(pack(msg)))
 			ssend(s, msg, aes)
 t = threading.Thread(target=sender)
 t.daemon = True
@@ -69,13 +68,10 @@ t.daemon = True
 def safeExit():
 	global s
 	global connected
-	#global t
 
-	#t.kill() # thread will be closed upon exit
 	connected = False
 	try:
-		#s.sendall(b'disconnect')
-		ssend(ssend(s, "disconnect", aes))
+		ssend(s, "disconnect", aes)
 	except:
 		pass
 	s.close()
