@@ -1,7 +1,8 @@
-import string, random, base64, hashlib, os, gzip
+import string, random, base64, hashlib, os, gzip, socket, threading, pyDH
 from Crypto import Random
 from Crypto.Cipher import AES
 from settings import *
+from sys import argv
 
 #
 # Class originally taken from : https://stackoverflow.com/a/21928790
@@ -56,6 +57,9 @@ class AESCipher(object):
 #
 
 alwayCryptor = AESCipher(ALWAYS_USE_KEY)
+diffieAES = AESCipher(ALWAYS_SAME_KEY)
+del ALWAYS_SAME_KEY
+del ALWAYS_USE_KEY
 def pack(msg):
 	global alwayCryptor
 	rv = alwayCryptor.encrypt(msg).decode()
@@ -76,8 +80,45 @@ def receivedata(socket, aes):
 	try:
 		data = socket.recv(MAX_PACK_LEN)
 	except ConnectionAbortedError:
+		#print("ConnectionAbortedError when receiving data")
 		socket.close()
 		exit()
 	if not data:
 		return None
 	return str(unpack(aes.decrypt(gzip.decompress(data))))
+
+# Diffie-Hellaman Key exchange
+def difhel(sock):
+
+	global diffieAES
+
+	dh = pyDH.DiffieHellman() # Exchanger for Diffie-Hellman key exchange
+	pubkey = str(dh.gen_public_key()) # Our public key for this conversation
+	failLimit = 2
+	sharedKey = ""
+	data = ""
+
+	print(" [*] Setting up keys...")
+
+	#sock.sendall(gzip.compress(diffieAES.encrypt(pack(pubkey))))
+	ssend(sock, pubkey, diffieAES)
+	fails = 0
+	while True:
+		try:
+			data = receivedata(sock, diffieAES)
+			if not data:
+				sock.close()
+				print("Failed key exchange")
+				exit()
+			# generate shared key with "data"
+			sharedKey = dh.gen_shared_key(int(data))
+			break
+		except ValueError:
+			if fails >= failLimit:
+				print("Failed key exchange, unknown message: ", str(data))
+				sock.close()
+				exit()
+			fails+=1
+			continue
+
+	return AESCipher(sharedKey)

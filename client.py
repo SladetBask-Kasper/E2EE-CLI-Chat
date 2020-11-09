@@ -1,13 +1,8 @@
 # source : https://realpython.com/python-sockets/
-import socket, threading, pyDH
 from encryption import *
-from sys import argv
 
 HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 65432        # The port used by the server
-sharedKey = ""
-diffieAES = AESCipher(ALWAYS_SAME_KEY)
-del ALWAYS_SAME_KEY
 
 if len(argv) > 1:
 	# This means arg was passed. Assuming its IP
@@ -18,55 +13,19 @@ if len(argv) > 2:
 	try:
 		PORT = int(argv[2])
 	except:
-		print("Invalid port as argv. " + str(PORT) + " is port.")
+		print("Invalid port as argv. " + str(PORT) + " is now the port.")
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST, PORT))
 connected = True
 print(f"Connected to {HOST}:{PORT}!")
-aes = None
-# Diffie-Hellaman Key exchange
-def difhel():
-	global aes
-	global diffieAES
-	global s
-	global sharedKey
 
-	dh = pyDH.DiffieHellman() # Exchanger for Diffie-Hellman key exchange
-	pubkey = str(dh.gen_public_key()) # Our public key for this conversation
-
-	print(" [*] Setting up keys...")
-
-	s.sendall(gzip.compress(diffieAES.encrypt(pack(pubkey))))
-	while True:
-		data = s.recv(MAX_PACK_LEN)
-		if not data:
-			s.close()
-			print("Failed key exchange")
-			exit()
-		# generate shared key with "data"
-		try:
-			sharedKey = dh.gen_shared_key(int(unpack(diffieAES.decrypt(gzip.decompress(data)))))
-			break
-		except gzip.BadGzipFile:
-			got = ""
-			try:
-				got = str(unpack(aes.decrypt(data)))
-			except:
-				got = str(data)
-			if not got == "changekey":
-				print("Failed key exchange, unknown message: ", got)
-				s.close()
-				exit()
-			continue
-	aes = AESCipher(sharedKey)
-	#del diffieAES
-	#print(" [*] Shared key", sharedKey)
-difhel()
+aes = difhel(s)
 
 def listen():
 	global s
 	global connected
+	global aes
 
 	inDiffie = False
 	while connected:
@@ -78,9 +37,8 @@ def listen():
 		if data == 'disconnect':
 			safeExit()
 		elif data == "changekey":
-			print(" [*] Changing keys")
 			ssend(s, data, aes)
-			difhel()
+			aes = difhel(s)
 		else:
 			print("Server:", data)
 def sender():
