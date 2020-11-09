@@ -3,6 +3,7 @@ from Crypto import Random
 from Crypto.Cipher import AES
 from settings import *
 from sys import argv
+from urllib.parse import quote, unquote
 
 #
 # Class originally taken from : https://stackoverflow.com/a/21928790
@@ -31,8 +32,10 @@ class AESCipher(object):
 		self.hexkey = hashlib.sha256(key.encode()).hexdigest()
 		self.keylen = len(key)
 
-	def encrypt(self, raw):
-		raw = self._pad(raw)
+	def encrypt(self, raw, urlQuote = False):
+		if urlQuote:
+			raw = quote(raw).replace("%20", " ")
+		raw = self._pad(raw) # the replace is there to save a few bites.
 		iv = Random.new().read(AES.block_size)
 		cipher = AES.new(self.key, AES.MODE_CBC, iv)
 		return base64.b64encode(iv + cipher.encrypt(raw.encode()))
@@ -41,7 +44,7 @@ class AESCipher(object):
 		enc = base64.b64decode(enc)
 		iv = enc[:AES.block_size]
 		cipher = AES.new(self.key, AES.MODE_CBC, iv)
-		return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode('utf-8')
+		return unquote(self._unpad(cipher.decrypt(enc[AES.block_size:])).decode())
 
 	def _pad(self, s):
 		return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
@@ -62,7 +65,7 @@ del ALWAYS_SAME_KEY
 del ALWAYS_USE_KEY
 def pack(msg):
 	global alwayCryptor
-	rv = alwayCryptor.encrypt(msg).decode()
+	rv = alwayCryptor.encrypt(msg, urlQuote=True).decode()
 	return rv
 def unpack(double_enc_data):
 	global alwayCryptor
@@ -98,7 +101,7 @@ def difhel(sock):
 	sharedKey = ""
 	data = ""
 
-	print(" [*] Setting up keys...")
+	print(" [*] Setting up keys...", end=" ")
 
 	#sock.sendall(gzip.compress(diffieAES.encrypt(pack(pubkey))))
 	ssend(sock, pubkey, diffieAES)
@@ -121,4 +124,5 @@ def difhel(sock):
 			fails+=1
 			continue
 
+	print("Done!")
 	return AESCipher(sharedKey)
