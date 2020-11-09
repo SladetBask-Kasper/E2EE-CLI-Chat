@@ -1,4 +1,3 @@
-# https://pypi.org/project/pycryptodome/
 import string, random, base64, hashlib, os, gzip
 from Crypto import Random
 from Crypto.Cipher import AES
