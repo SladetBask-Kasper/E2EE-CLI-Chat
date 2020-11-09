@@ -1,5 +1,5 @@
 # source : https://realpython.com/python-sockets/
-import socket, threading, pyDH, gzip
+import socket, threading, pyDH
 from encryption import *
 from sys import argv
 
@@ -14,27 +14,27 @@ if len(argv) > 1:
 	HOST = str(argv[1])
 
 if len(argv) > 2:
-    # this meanse two args was passed. Assuming it's port.
-    try:
-        PORT = int(argv[2])
-    except:
-        print("Invalid port as argv. " + str(PORT) + " is port.")
+	# this meanse two args was passed. Assuming it's port.
+	try:
+		PORT = int(argv[2])
+	except:
+		print("Invalid port as argv. " + str(PORT) + " is port.")
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST, PORT))
 connected = True
 print(f"Connected to {HOST}:{PORT}!")
 aes = None
-# Diffie-Hellaman Key exchange 
+# Diffie-Hellaman Key exchange
 def difhel():
-	global aes 
+	global aes
 	global diffieAES
 	global s
 	global sharedKey
 
 	dh = pyDH.DiffieHellman() # Exchanger for Diffie-Hellman key exchange
 	pubkey = str(dh.gen_public_key()) # Our public key for this conversation
-	
+
 	print(" [*] Setting up keys...")
 
 	s.sendall(gzip.compress(diffieAES.encrypt(pack(pubkey))))
@@ -88,13 +88,13 @@ def sender():
 	global connected
 
 	while connected:
-		try : 
+		try :
 			msg = str(input()).strip()
-		except EOFError: 
+		except EOFError:
 			safeExit()
 
 		if msg == "":
-			continue 
+			continue
 		elif len(msg) > 530:
 			print("ERROR: Your message was too big to send.")
 			continue
@@ -109,19 +109,19 @@ t = threading.Thread(target=sender)
 t.daemon = True
 
 def safeExit():
-    global s
-    global connected
-    #global t
+	global s
+	global connected
+	#global t
 
-    #t.kill() # thread will be closed upon exit
-    connected = False
-    try:
-        #s.sendall(b'disconnect')
-        ssend(ssend(s, "disconnect", aes))
-    except:
-        pass
-    s.close()
-    exit()
+	#t.kill() # thread will be closed upon exit
+	connected = False
+	try:
+		#s.sendall(b'disconnect')
+		ssend(ssend(s, "disconnect", aes))
+	except:
+		pass
+	s.close()
+	exit()
 
 try:
 	t.start()

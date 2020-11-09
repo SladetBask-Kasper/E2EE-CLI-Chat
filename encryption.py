@@ -1,5 +1,5 @@
 # https://pypi.org/project/pycryptodome/
-import string, random, base64, hashlib, os
+import string, random, base64, hashlib, os, gzip
 from Crypto import Random
 from Crypto.Cipher import AES
 from settings import *
@@ -28,7 +28,7 @@ class AESCipher(object):
 
 	def __init__(self, key = "None"):
 		key = str(key)
-		if (key == "None"): 
+		if (key == "None"):
 			#key = self.genKey(32768) # 2048*16
 			key = self.genKey(2048)
 			#print("key: ", key)
@@ -68,10 +68,14 @@ def unpack(double_enc_data):
 	rv = alwayCryptor.decrypt(double_enc_data)#.encode()
 	return rv
 def cls():
-    os.system('cls' if os.name=='nt' else 'clear')
+	os.system('cls' if os.name=='nt' else 'clear')
 # secure send
 def ssend(socket, message, aes):
-	socket.sendall(aes.encrypt(pack(message)))
+	data = gzip.compress(aes.encrypt(pack(message)))
+	"""if len(str(data.decode())) >= 32:
+		print("Compressing message")
+		data = b'@gzip' + gzip.compress(data)"""
+	socket.sendall(data)
 
 def receivedata(socket, aes):
 	data = None
@@ -82,7 +86,10 @@ def receivedata(socket, aes):
 		exit()
 	if not data:
 		return None
-	return str(unpack(aes.decrypt(data)))
+	"""if data[:5] == b"@gzip":
+		print("Decompressing message")
+		data =  gzip.decompress(data[5:])"""
+	return str(unpack(aes.decrypt(gzip.decompress(data))))
 
 """if __name__ == "__main__":
 	data = "This is very secret."
