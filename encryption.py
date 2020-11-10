@@ -103,7 +103,6 @@ def difhel(sock):
 
 	print(" [*] Setting up keys...", end=" ")
 
-	#sock.sendall(gzip.compress(diffieAES.encrypt(pack(pubkey))))
 	ssend(sock, pubkey, diffieAES)
 	fails = 0
 	while True:
