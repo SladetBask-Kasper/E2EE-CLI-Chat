@@ -11,10 +11,14 @@ if len(argv) > 1:
 	except:
 		print("Invalid port as argv. " + str(PORT) + " is now the port.")
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((HOST, PORT))
-s.listen()
-conn, addr = s.accept()
+try:
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	s.bind((HOST, PORT))
+	s.listen()
+	conn, addr = s.accept()
+except:
+	print("Failed to bind and listen to port.")
+	exit()
 
 connected = True
 print(f'Connected by {addr[0]}:{addr[1]}!')
