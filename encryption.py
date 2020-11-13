@@ -95,14 +95,14 @@ def difhel(sock):
 
 	global diffieAES
 
-	dh = pyDH.DiffieHellman() # Exchanger for Diffie-Hellman key exchange
+	print(" [*] Setting up keys...", end=" ")
+
+	dh = pyDH.DiffieHellman(16) # Exchanger for Diffie-Hellman key exchange
 	pubkey = str(dh.gen_public_key()) # Our public key for this conversation
 	failLimit = 2
 	sharedKey = ""
 	data = ""
-
-	print(" [*] Setting up keys...", end=" ")
-
+	
 	ssend(sock, pubkey, diffieAES)
 	fails = 0
 	while True:
