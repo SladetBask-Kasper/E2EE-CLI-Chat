@@ -1,0 +1,5 @@
+# pip install -r requirements.txt
+# it shouldn't matter what version these are in.
+pycryptodome
+pyDH
+rsa
