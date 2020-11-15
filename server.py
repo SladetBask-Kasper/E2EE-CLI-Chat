@@ -23,6 +23,8 @@ except:
 connected = True
 print(f'Connected by {addr[0]}:{addr[1]}!')
 
+useAsServer()
+
 aes = difhel(conn)
 
 def sender():

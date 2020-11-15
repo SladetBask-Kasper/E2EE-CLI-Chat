@@ -20,6 +20,8 @@ s.connect((HOST, PORT))
 connected = True
 print(f"Connected to {HOST}:{PORT}!")
 
+useAsClient()
+
 aes = difhel(s)
 
 def listen():

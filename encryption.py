@@ -1,9 +1,40 @@
-import string, random, base64, hashlib, os, gzip, socket, threading, pyDH
+import string, random, base64, hashlib, os, gzip, socket, threading, pyDH, rsa
 from Crypto import Random
 from Crypto.Cipher import AES
 from settings import *
 from sys import argv
 from urllib.parse import quote, unquote
+
+
+def generateRSAKeys():
+	(pubkey, privkey) = rsa.newkeys(1024)
+	f = open('keys/serv_priv.pem', 'wb')
+	f.write(privkey.save_pkcs1())
+	f.close()
+	f = open('keys/serv_pub.pem', 'wb')
+	f.write(pubkey.save_pkcs1())
+	f.close()
+	(pubkey, privkey) = rsa.newkeys(1024)
+	f = open('keys/cli_priv.pem', 'wb')
+	f.write(privkey.save_pkcs1())
+	f.close()
+	f = open('keys/cli_pub.pem', 'wb')
+	f.write(pubkey.save_pkcs1())
+	f.close()
+def genkeys(): generateRSAKeys()
+def readPriv(filename):
+	with open(filename, mode='rb') as privatefile:
+		keydata = privatefile.read()
+		return rsa.PrivateKey.load_pkcs1(keydata)
+def readPub(filename):
+	with open(filename, mode='rb') as privatefile:
+		keydata = privatefile.read()
+		return rsa.PublicKey.load_pkcs1(keydata)
+#print(readPub("keys/cli_pub.pem"))
+#cli_pub = readPub("keys/cli_pub.pem")
+#serv_pub = readPub("keys/serv_pub.pem")
+use_priv = None
+use_pub = None
 
 #
 # Class originally taken from : https://stackoverflow.com/a/21928790
@@ -32,9 +63,7 @@ class AESCipher(object):
 		self.hexkey = hashlib.sha256(key.encode()).hexdigest()
 		self.keylen = len(key)
 
-	def encrypt(self, raw, urlQuote = False):
-		if urlQuote:
-			raw = quote(raw).replace("%20", " ")
+	def encrypt(self, raw):
 		raw = self._pad(raw) # the replace is there to save a few bites.
 		iv = Random.new().read(AES.block_size)
 		cipher = AES.new(self.key, AES.MODE_CBC, iv)
@@ -44,9 +73,10 @@ class AESCipher(object):
 		enc = base64.b64decode(enc)
 		iv = enc[:AES.block_size]
 		cipher = AES.new(self.key, AES.MODE_CBC, iv)
-		return unquote(self._unpad(cipher.decrypt(enc[AES.block_size:])).decode())
+		return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode()
 
-	def _pad(self, s):
+	def _pad(self, s: str):
+		s = str(s)
 		return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
 
 	@staticmethod
@@ -59,18 +89,62 @@ class AESCipher(object):
 # =========================================================================
 #
 
+def useAsServer():
+	global use_pub
+	global use_priv
+
+	use_priv = readPriv("keys/serv_priv.pem")
+	use_pub = readPub("keys/cli_pub.pem")
+def useAsClient():
+	global use_pub
+	global use_priv
+
+	use_priv = readPriv("keys/cli_priv.pem")
+	use_pub = readPub("keys/serv_pub.pem")
+
 alwayCryptor = AESCipher(ALWAYS_USE_KEY)
 diffieAES = AESCipher(ALWAYS_SAME_KEY)
 del ALWAYS_SAME_KEY
 del ALWAYS_USE_KEY
 def pack(msg):
 	global alwayCryptor
-	rv = alwayCryptor.encrypt(msg, urlQuote=True).decode()
+
+	# What to use for signiture?
+	#>>> len(hashlib.md5(b'GeeksforGeeks').hexdigest())
+	#32
+	#>>> len(hashlib.sha1(b'GeeksforGeeks').hexdigest())
+	#40
+	#>>> len(hashlib.sha256(b'GeeksforGeeks').hexdigest())
+	#64
+	#>>> len(hashlib.sha512(b'GeeksforGeeks').hexdigest())
+	#128
+	# I don't want to use md5 or sha1 since i believe you can forge sig:s
+	# with them but i also want the sig to be as small as possible and take
+	# as little bandwidth as possible. It also has to be less than 117 bites
+	# well since we're just using it to verify that the message hasn't gone
+	# currupt i'll use md5 for bandwidth
+	#sig = str(rsa.encrypt(hashlib.md5(rv).digest(), use_pub))[:-1][2:]# diry way to decode.
+	msg = quote(msg).replace("%20", " ")
+	sig = quote(str(rsa.encrypt(hashlib.md5(msg.encode()).digest(), use_pub))[:-1][2:])#.decode('latin-1')
+	bruh = str(sig+'ENDSIG'+msg)
+	print(bruh)
+	rv = alwayCryptor.encrypt(bruh)
 	return rv
 def unpack(double_enc_data):
 	global alwayCryptor
-	rv = alwayCryptor.decrypt(double_enc_data)#.encode()
-	return rv
+	data = alwayCryptor.decrypt(double_enc_data)
+	sig, msg = data.split('ENDSIG')
+	sig = unquote(sig).encode()
+	msg = msg.encode()
+	try:
+		sig = rsa.decrypt(sig, use_priv)
+	except:
+		print(" [!] Invalid RSA Key. Connection compromised.")
+		#exit() # the program should crash so idk why i'm not calling this exit.
+	if not sig == hashlib.md5(msg).digest():
+		print(" [!] Message might have been corrupted!")
+
+	return unquote(msg)
 def cls():
 	os.system('cls' if os.name=='nt' else 'clear')
 # secure send
@@ -102,7 +176,7 @@ def difhel(sock):
 	failLimit = 2
 	sharedKey = ""
 	data = ""
-	
+
 	ssend(sock, pubkey, diffieAES)
 	fails = 0
 	while True:
