@@ -30,9 +30,7 @@ def readPub(filename):
 	with open(filename, mode='rb') as privatefile:
 		keydata = privatefile.read()
 		return rsa.PublicKey.load_pkcs1(keydata)
-#print(readPub("keys/cli_pub.pem"))
-#cli_pub = readPub("keys/cli_pub.pem")
-#serv_pub = readPub("keys/serv_pub.pem")
+
 use_priv = None
 use_pub = None
 
@@ -64,7 +62,7 @@ class AESCipher(object):
 		self.keylen = len(key)
 
 	def encrypt(self, raw):
-		raw = self._pad(raw) # the replace is there to save a few bites.
+		raw = self._pad(raw)
 		iv = Random.new().read(AES.block_size)
 		cipher = AES.new(self.key, AES.MODE_CBC, iv)
 		return base64.b64encode(iv + cipher.encrypt(raw.encode()))
@@ -76,7 +74,7 @@ class AESCipher(object):
 		return self._unpad(cipher.decrypt(enc[AES.block_size:])).decode()
 
 	def _pad(self, s: str):
-		s = str(s)
+		#s = str(s)
 		return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
 
 	@staticmethod
@@ -128,7 +126,9 @@ def pack(msg):
 	sig = quote(str(rsa.encrypt(hashlib.md5(msg.encode()).digest(), use_pub))[:-1][2:])#.decode('latin-1')
 	bruh = str(sig+'ENDSIG'+msg)
 	print(bruh)
-	rv = alwayCryptor.encrypt(bruh)
+	rv = alwayCryptor.encrypt(bruh).decode()
+	print("\n\n" + '='*32 + "\n\n")
+	print(rv)
 	return rv
 def unpack(double_enc_data):
 	global alwayCryptor
